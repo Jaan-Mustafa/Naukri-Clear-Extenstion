@@ -1,6 +1,6 @@
 # Naukri Clear — Job Clipper
 
-A Chrome/Brave/Edge extension that clips job listings from **LinkedIn**, **Indeed**, and **Naukri** and saves them straight into your [Naukri Clear](https://naukriclear.com) tracker with one click.
+A Chrome/Brave/Edge extension that saves any job listing to your [Naukri Clear](https://naukriclear.com) tracker in one click. Auto-fills company, role, salary, and description on **LinkedIn**, **Indeed**, and **Naukri** — on any other site (Glassdoor, Wellfound, company careers pages, etc.), just fill the form manually and save.
 
 ![version](https://img.shields.io/badge/version-1.0.0-blue)
 ![manifest](https://img.shields.io/badge/manifest-v3-green)
@@ -9,7 +9,8 @@ A Chrome/Brave/Edge extension that clips job listings from **LinkedIn**, **Indee
 
 ## Features
 
-- **One-click save** — extract company, role, location, salary, and description from the job page.
+- **Auto-extract on LinkedIn / Indeed / Naukri** — company, role, location, salary, description pre-filled.
+- **Manual save on any site** — Glassdoor, Wellfound, Foundit, company careers pages, etc. Form always opens, just fill it in.
 - **Side panel UI** — stays docked open while you browse, no re-opening popups.
 - **Draft auto-save** — your edits survive accidental closes.
 - **Duplicate detection** — if you already saved the job, you won't save it twice.
@@ -55,13 +56,20 @@ You're done. The token is stored locally in your browser and never leaves your m
 
 ## Using the extension
 
-1. Open any job posting on **LinkedIn**, **Indeed**, or **Naukri**.
+### On LinkedIn, Indeed, or Naukri
+1. Open the job posting.
 2. Click the extension icon — the side panel shows the extracted job details.
 3. Review / edit the fields, pick a stage (`Interested` or `Applied`), add notes.
 4. Hit **Save to Tracker**.
 5. Click **View in Naukri Clear** to jump to your tracker.
 
-If the extractor couldn't read the page (rare), you'll still get a blank form — just fill in what you see on the job page and save.
+### On any other site (Glassdoor, Wellfound, company careers page, etc.)
+1. Open the job page.
+2. Click the extension icon — the side panel opens with a **blank form** and the page URL auto-filled as the job link.
+3. Copy-paste or type the company, role, location, salary from the page.
+4. Hit **Save to Tracker**.
+
+If extraction fails on a supported site (rare), the flow is the same as the manual one — blank form, you fill it in.
 
 ---
 
@@ -99,25 +107,6 @@ Then go to `chrome://extensions` and click the **refresh** icon on the Naukri Cl
 ---
 
 ## For developers
-
-### Running against a local backend
-
-By default the extension talks to `https://api.naukriclear.com`. To point it at `http://localhost:8080` for local development:
-
-1. Right-click the extension icon → **Inspect side panel**.
-2. In the DevTools console, run:
-   ```js
-   chrome.storage.local.set({
-     apiBase: 'http://localhost:8080',
-     appBase: 'http://localhost:5173'
-   });
-   ```
-3. Reload the side panel.
-
-To revert:
-```js
-chrome.storage.local.remove(['apiBase', 'appBase']);
-```
 
 ### Project layout
 
