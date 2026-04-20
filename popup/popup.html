@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naukri Clear</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <div class="header">
+      <img src="../icons/icon-48.png" alt="" class="logo" />
+      <span class="brand">Naukri <span class="brand-light">Clear</span></span>
+    </div>
+
+    <!-- States -->
+    <div id="state-loading" class="state">
+      <div class="spinner"></div>
+      <p class="hint">Reading job details...</p>
+    </div>
+
+    <div id="state-login" class="state hidden">
+      <p class="message">Connect your Naukri Clear account</p>
+      <p class="hint">
+        Go to <a id="settings-link" href="#" target="_blank">Settings</a>
+        in Naukri Clear and generate an Extension Token. Paste it below.
+      </p>
+      <div class="token-input-group">
+        <input type="text" id="token-input" placeholder="nc_..." class="token-input" />
+        <button id="save-token-btn" class="btn btn-primary">Connect</button>
+      </div>
+      <div id="token-error" class="error hidden"></div>
+    </div>
+
+    <div id="state-unsupported" class="state hidden">
+      <p class="message">This page isn't a supported job listing.</p>
+      <p class="hint">Open a job posting on LinkedIn, Indeed, or Naukri and try again.</p>
+    </div>
+
+    <div id="state-form" class="state hidden">
+      <form id="clip-form">
+        <div class="field">
+          <label for="company">Company</label>
+          <input type="text" id="company" required />
+        </div>
+        <div class="field">
+          <label for="role">Role</label>
+          <input type="text" id="role" required />
+        </div>
+        <div class="field">
+          <label for="location">Location</label>
+          <input type="text" id="location" />
+        </div>
+        <div class="field">
+          <label for="salaryRange">Salary</label>
+          <input type="text" id="salaryRange" />
+        </div>
+        <div class="field">
+          <label for="source">Source</label>
+          <input type="text" id="source" readonly />
+        </div>
+        <div class="field">
+          <label for="stage">Stage</label>
+          <select id="stage">
+            <option value="INTERESTED">Interested</option>
+            <option value="APPLIED">Applied</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="notes">Notes</label>
+          <textarea id="notes" rows="2" placeholder="Optional"></textarea>
+        </div>
+
+        <div id="form-error" class="error hidden"></div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary" id="save-btn">
+            Save to Tracker
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="state-duplicate" class="state hidden">
+      <div class="success-icon">&#10003;</div>
+      <p class="message">Already in your tracker</p>
+      <a id="duplicate-link" class="btn btn-outline" href="#" target="_blank">
+        View in Naukri Clear
+      </a>
+    </div>
+
+    <div id="state-saved" class="state hidden">
+      <div class="success-icon">&#10003;</div>
+      <p class="message">Saved to your tracker!</p>
+      <a id="saved-link" class="btn btn-outline" href="#" target="_blank">
+        View in Naukri Clear
+      </a>
+    </div>
+
+    <div id="state-error" class="state hidden">
+      <p class="message error-text" id="error-message">Something went wrong.</p>
+      <button class="btn btn-outline" id="retry-btn">Try Again</button>
+    </div>
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
