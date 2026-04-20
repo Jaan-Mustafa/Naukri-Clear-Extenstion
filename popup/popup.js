@@ -200,22 +200,36 @@ async function init() {
     return;
   }
 
-  const data = await extractFromPage();
-  if (!data) {
-    showState('unsupported');
-    return;
-  }
+  const extracted = await extractFromPage();
+  const data = extracted || (await emptyFormData());
 
-  const duplicate = await checkDuplicate(data.jobLink);
-  if (duplicate) {
-    document.getElementById('duplicate-link').href = `${APP_BASE}/applications`;
-    showState('duplicate');
-    return;
+  if (data.jobLink) {
+    const duplicate = await checkDuplicate(data.jobLink);
+    if (duplicate) {
+      document.getElementById('duplicate-link').href = `${APP_BASE}/applications`;
+      showState('duplicate');
+      return;
+    }
   }
 
   const draft = await loadDraft(data.jobLink);
   fillForm(data, draft);
   showState('form');
+}
+
+async function emptyFormData() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = tab?.url || '';
+  const jobLink = /^https?:\/\//.test(url) ? url.split('?')[0] : null;
+  return {
+    company: null,
+    role: null,
+    location: null,
+    salaryRange: null,
+    source: null,
+    jobDescription: null,
+    jobLink,
+  };
 }
 
 function showLoginError(msg) {
@@ -256,20 +270,17 @@ document.getElementById('save-token-btn').addEventListener('click', async () => 
   const auth = await checkAuth();
 
   if (auth.ok) {
-    // Token works — continue to extraction
-    const data = await extractFromPage();
-    if (!data) {
-      showState('unsupported');
+    // Token works — continue to extraction, fall back to blank form if it fails
+    const extracted = await extractFromPage();
+    const data = extracted || (await emptyFormData());
+    const duplicate = data.jobLink ? await checkDuplicate(data.jobLink) : null;
+    if (duplicate) {
+      document.getElementById('duplicate-link').href = `${APP_BASE}/applications`;
+      showState('duplicate');
     } else {
-      const duplicate = await checkDuplicate(data.jobLink);
-      if (duplicate) {
-        document.getElementById('duplicate-link').href = `${APP_BASE}/applications`;
-        showState('duplicate');
-      } else {
-        const draft = await loadDraft(data.jobLink);
-        fillForm(data, draft);
-        showState('form');
-      }
+      const draft = await loadDraft(data.jobLink);
+      fillForm(data, draft);
+      showState('form');
     }
   } else {
     // Token failed
