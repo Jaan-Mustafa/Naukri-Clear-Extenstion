@@ -116,6 +116,35 @@ function clearToken() {
   });
 }
 
+// Clear everything tied to the connected account: the token itself, the
+// cached autofill profile, and any per-job clip drafts. UI preferences
+// (active tab, log-on-submit) are left alone.
+function clearAccountData() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(null, (all) => {
+      const keysToRemove = ['apiToken', 'autofillProfileCache'];
+      for (const k of Object.keys(all)) {
+        if (k.startsWith('draft:')) keysToRemove.push(k);
+      }
+      chrome.storage.local.remove(keysToRemove, () => resolve());
+    });
+  });
+}
+
+function showConnectedAccount(user) {
+  const wrap = document.getElementById('account-info');
+  const email = document.getElementById('account-email');
+  if (!wrap || !email) return;
+  const label = user?.email || user?.name || 'Connected';
+  email.textContent = label;
+  email.title = label;
+  wrap.classList.remove('hidden');
+}
+
+function hideConnectedAccount() {
+  document.getElementById('account-info')?.classList.add('hidden');
+}
+
 function authHeaders() {
   return apiToken ? { Authorization: `Bearer ${apiToken}` } : {};
 }
@@ -266,6 +295,7 @@ async function init() {
   apiToken = await getToken();
 
   if (!apiToken) {
+    hideConnectedAccount();
     showState('login');
     return;
   }
@@ -274,9 +304,12 @@ async function init() {
   if (!auth.ok) {
     apiToken = null;
     await clearToken();
+    hideConnectedAccount();
     showLoginError(`Could not verify token. ${auth.reason}`);
     return;
   }
+
+  showConnectedAccount(auth.user);
 
   const extracted = await extractFromPage();
   const data = extracted || (await emptyFormData());
@@ -348,6 +381,7 @@ document.getElementById('save-token-btn').addEventListener('click', async () => 
   const auth = await checkAuth();
 
   if (auth.ok) {
+    showConnectedAccount(auth.user);
     // Token works — continue to extraction, fall back to blank form if it fails
     const extracted = await extractFromPage();
     const data = extracted || (await emptyFormData());
@@ -409,6 +443,20 @@ document.getElementById('clip-form').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('retry-btn')?.addEventListener('click', () => init());
+
+document.getElementById('disconnect-btn')?.addEventListener('click', async () => {
+  const ok = window.confirm(
+    "Disconnect this account? You'll need to paste your token again to reconnect."
+  );
+  if (!ok) return;
+  apiToken = null;
+  await clearAccountData();
+  hideConnectedAccount();
+  // Drop back to Track so the user sees the login screen immediately, even
+  // if the side panel was previously on the Apply tab.
+  showTab('track');
+  init();
+});
 
 // Tab switching — manual override keeps that choice until next init().
 document.querySelectorAll('.tab-btn').forEach((btn) => {
