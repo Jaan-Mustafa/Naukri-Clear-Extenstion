@@ -7,8 +7,21 @@
   "host_permissions": [
     "https://naukriclear.com/*",
     "https://api.naukriclear.com/*",
-    "http://localhost:8080/*"
+    "http://localhost:8080/*",
+    "https://*.workday.com/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://boards.greenhouse.io/*",
+    "https://job-boards.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://*.icims.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://*.bamboohr.com/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.jobvite.com/*",
+    "https://*.keka.com/*",
+    "https://*.kekahire.com/*"
   ],
+  "optional_host_permissions": ["https://*/*"],
   "action": {
     "default_icon": {
       "16": "icons/icon-16.png",

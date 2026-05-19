@@ -172,6 +172,30 @@ body {
   cursor: pointer;
 }
 
+/* Link-style button — for low-emphasis "force enable" path */
+.btn-link {
+  display: inline;
+  width: auto;
+  background: none;
+  border: none;
+  color: #9b9a97;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: #37352f;
+}
+
+/* Permission prompt host badge */
+#apply-perm-host,
+#apply-force-host {
+  font-weight: 600;
+  color: #37352f;
+}
+
 /* States */
 .state {
   display: flex;

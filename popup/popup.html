@@ -129,6 +129,21 @@
           and try again.
         </p>
         <button class="btn btn-outline" id="apply-rescan-noform">Rescan</button>
+        <button class="btn btn-link" id="apply-force-enable">
+          Force-enable on <span id="apply-force-host">this site</span>
+        </button>
+      </div>
+
+      <div id="state-apply-permission" class="state hidden">
+        <div class="stub-icon">&#9889;</div>
+        <p class="message">Enable autofill on <span id="apply-perm-host">this site</span>?</p>
+        <p class="hint">
+          This page looks like a job application. Grant Naukri Clear permission
+          to read and fill its fields. The grant is remembered — you'll only see
+          this once per site.
+        </p>
+        <button class="btn btn-primary" id="apply-grant-btn">Enable autofill</button>
+        <button class="btn btn-outline" id="apply-skip-perm">Not now</button>
       </div>
 
       <div id="state-apply-ready" class="state hidden">
@@ -185,6 +200,7 @@
   </div>
 
   <script src="../config.js"></script>
+  <script src="url-signals.js"></script>
   <script src="popup.js"></script>
   <script src="apply-tab.js"></script>
 </body>

@@ -30,6 +30,8 @@ const APPLY_HOSTS = [
   'bamboohr.com',
   'ashbyhq.com',
   'jobvite.com',
+  'keka.com',
+  'kekahire.com',
 ];
 const TRACK_HOSTS = [
   'linkedin.com',
@@ -46,6 +48,11 @@ function detectTabFromUrl(url) {
     if (TRACK_HOSTS.some((h) => host.includes(h))) return 'track';
   } catch {
     // fall through
+  }
+  // Fall back to URL-signal detection — covers careers.* / */apply / */careers
+  // on non-curated hosts so the Apply tab surfaces with a permission prompt.
+  if (typeof window.NC_isApplyishUrl === 'function' && window.NC_isApplyishUrl(url)) {
+    return 'apply';
   }
   return null;
 }

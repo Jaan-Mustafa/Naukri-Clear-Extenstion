@@ -42,13 +42,29 @@
     },
   };
 
-  const STATES = ['loading', 'noform', 'ready', 'filled', 'error'];
+  const STATES = ['loading', 'noform', 'permission', 'ready', 'filled', 'error'];
+
+  // Tracks the origin pattern most recently shown in the permission prompt
+  // so the grant button knows what to request.
+  let pendingPermissionOrigin = null;
 
   function showApplyState(name) {
     for (const s of STATES) {
       const el = document.getElementById(`state-apply-${s}`);
       if (el) el.classList.toggle('hidden', s !== name);
     }
+  }
+
+  function hasOriginPermission(origin) {
+    return new Promise((resolve) => {
+      chrome.permissions.contains({ origins: [origin] }, (granted) => resolve(granted));
+    });
+  }
+
+  function requestOriginPermission(origin) {
+    return new Promise((resolve) => {
+      chrome.permissions.request({ origins: [origin] }, (granted) => resolve(granted));
+    });
   }
 
   function getProfile() {
@@ -151,14 +167,61 @@
     wrapEl.classList.remove('hidden');
   }
 
+  function showPermissionPrompt(hostname, origin) {
+    pendingPermissionOrigin = origin;
+    const hostEl = document.getElementById('apply-perm-host');
+    if (hostEl) hostEl.textContent = hostname || 'this site';
+    showApplyState('permission');
+  }
+
+  function showNoForm(hostname) {
+    const hostEl = document.getElementById('apply-force-host');
+    if (hostEl) hostEl.textContent = hostname || 'this site';
+    // Stash the origin pattern on the button for the force-enable handler.
+    const forceBtn = document.getElementById('apply-force-enable');
+    if (forceBtn) forceBtn.dataset.origin = pendingPermissionOrigin || '';
+    showApplyState('noform');
+  }
+
   async function initApplyTab() {
     showApplyState('loading');
+
+    const tab = await getActiveTab();
+    if (!tab?.id || !isInjectableUrl(tab.url)) {
+      pendingPermissionOrigin = null;
+      showNoForm(null);
+      return;
+    }
+
+    const origin =
+      (typeof window.NC_getOriginPattern === 'function' && window.NC_getOriginPattern(tab.url)) ||
+      null;
+    const hostname =
+      (typeof window.NC_getHostname === 'function' && window.NC_getHostname(tab.url)) ||
+      null;
+    pendingPermissionOrigin = origin;
+
+    if (origin) {
+      const granted = await hasOriginPermission(origin);
+      if (!granted) {
+        // Page looks like an application form? Surface the permission ask.
+        // Otherwise stay quiet — the user gets a "force enable" link on noform.
+        const applyish =
+          typeof window.NC_isApplyishUrl === 'function' && window.NC_isApplyishUrl(tab.url);
+        if (applyish) {
+          showPermissionPrompt(hostname, origin);
+        } else {
+          showNoForm(hostname);
+        }
+        return;
+      }
+    }
 
     const result = await scanPage();
 
     if (!result.ok) {
       if (result.error === 'unsupported-page') {
-        showApplyState('noform');
+        showNoForm(hostname);
         return;
       }
       document.getElementById('apply-error-message').textContent =
@@ -168,7 +231,7 @@
     }
 
     if (result.totalFields === 0) {
-      showApplyState('noform');
+      showNoForm(hostname);
       return;
     }
 
@@ -183,6 +246,39 @@
     );
 
     showApplyState('ready');
+  }
+
+  async function handleGrantClick() {
+    if (!pendingPermissionOrigin) {
+      initApplyTab();
+      return;
+    }
+    const btn = document.getElementById('apply-grant-btn');
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Waiting for grant...';
+    const granted = await requestOriginPermission(pendingPermissionOrigin);
+    btn.disabled = false;
+    btn.textContent = original;
+    if (granted) {
+      // Permission lands — re-run init from scratch; this will now inject + scan.
+      initApplyTab();
+    }
+    // If denied we just stay on the permission prompt; user can hit "Not now"
+    // to drop back to noform.
+  }
+
+  async function handleForceEnableClick() {
+    const tab = await getActiveTab();
+    if (!tab?.url) return;
+    const origin =
+      (typeof window.NC_getOriginPattern === 'function' && window.NC_getOriginPattern(tab.url)) ||
+      null;
+    const hostname =
+      (typeof window.NC_getHostname === 'function' && window.NC_getHostname(tab.url)) ||
+      null;
+    if (!origin) return;
+    showPermissionPrompt(hostname, origin);
   }
 
   async function handleFillClick() {
@@ -226,6 +322,25 @@
   document.getElementById('apply-rescan-ready')?.addEventListener('click', initApplyTab);
   document.getElementById('apply-refill-btn')?.addEventListener('click', initApplyTab);
   document.getElementById('apply-retry-btn')?.addEventListener('click', initApplyTab);
+  document.getElementById('apply-grant-btn')?.addEventListener('click', handleGrantClick);
+  document.getElementById('apply-skip-perm')?.addEventListener('click', () => {
+    // User declined the soft prompt — drop back to noform so they can still
+    // force-enable later if they change their mind.
+    const hostEl = document.getElementById('apply-perm-host');
+    showNoForm(hostEl?.textContent || null);
+  });
+  document.getElementById('apply-force-enable')?.addEventListener('click', handleForceEnableClick);
+
+  // If permission lands via Chrome's settings UI (or any other path), reinit.
+  if (chrome.permissions?.onAdded) {
+    chrome.permissions.onAdded.addListener(() => {
+      // Only reinit if the user is currently looking at the Apply tab.
+      const panel = document.getElementById('apply-panel');
+      if (panel && !panel.classList.contains('hidden')) {
+        initApplyTab();
+      }
+    });
+  }
 
   const logToggle = document.getElementById('apply-log-toggle');
   if (logToggle) {

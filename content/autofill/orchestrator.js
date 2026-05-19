@@ -14,6 +14,7 @@
     { name: 'bamboohr', match: /bamboohr\.com/i },
     { name: 'ashby', match: /ashbyhq\.com/i },
     { name: 'jobvite', match: /jobvite\.com/i },
+    { name: 'keka', match: /keka\.com|kekahire\.com/i },
     { name: 'linkedin', match: /linkedin\.com/i },
     { name: 'naukri', match: /naukri\.com/i },
   ];
