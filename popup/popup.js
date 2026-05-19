@@ -15,6 +15,68 @@ const states = {
 
 let extractedData = null;
 let apiToken = null;
+let activeTab = 'track';
+
+// Hosts that signal we're on a job application form → default to Apply tab.
+// Listing/clipper hosts default to Track. Other pages fall back to last-used.
+const APPLY_HOSTS = [
+  'myworkdayjobs.com',
+  'workday.com',
+  'boards.greenhouse.io',
+  'job-boards.greenhouse.io',
+  'jobs.lever.co',
+  'icims.com',
+  'smartrecruiters.com',
+  'bamboohr.com',
+  'ashbyhq.com',
+  'jobvite.com',
+];
+const TRACK_HOSTS = [
+  'linkedin.com',
+  'naukri.com',
+  'indeed.com',
+  'glassdoor.com',
+];
+
+function detectTabFromUrl(url) {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (APPLY_HOSTS.some((h) => host.includes(h))) return 'apply';
+    if (TRACK_HOSTS.some((h) => host.includes(h))) return 'track';
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+function getLastTab() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['activeTab'], (r) => resolve(r.activeTab || null));
+  });
+}
+
+function setLastTab(tab) {
+  chrome.storage.local.set({ activeTab: tab });
+}
+
+function showTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.getElementById('track-panel').classList.toggle('hidden', tab !== 'track');
+  document.getElementById('apply-panel').classList.toggle('hidden', tab !== 'apply');
+  setLastTab(tab);
+}
+
+async function pickDefaultTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const detected = detectTabFromUrl(tab?.url);
+  if (detected) return detected;
+  const remembered = await getLastTab();
+  return remembered || 'track';
+}
 
 function showState(name) {
   Object.values(states).forEach((el) => el.classList.add('hidden'));
@@ -182,6 +244,9 @@ async function applyConfig() {
 }
 
 async function init() {
+  const defaultTab = await pickDefaultTab();
+  showTab(defaultTab);
+
   showState('loading');
   await applyConfig();
 
@@ -331,6 +396,11 @@ document.getElementById('clip-form').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('retry-btn')?.addEventListener('click', () => init());
+
+// Tab switching — manual override keeps that choice until next init().
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => showTab(btn.dataset.tab));
+});
 
 wireDraftAutoSave();
 init();

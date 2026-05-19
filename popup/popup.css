@@ -42,6 +42,68 @@ body {
   color: #9b9a97;
 }
 
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #f1f0ed;
+  border-radius: 7px;
+  margin-bottom: 14px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9b9a97;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, background 0.15s;
+}
+
+.tab-btn:hover {
+  color: #37352f;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #37352f;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tab-panel {
+  display: block;
+}
+
+.tab-panel.hidden {
+  display: none !important;
+}
+
+/* Apply tab stub */
+.apply-stub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 10px 10px;
+  text-align: center;
+}
+
+.stub-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.apply-stub strong {
+  color: #37352f;
+  font-weight: 600;
+}
+
 /* States */
 .state {
   display: flex;

@@ -14,6 +14,15 @@
       <span class="brand">Naukri <span class="brand-light">Clear</span></span>
     </div>
 
+    <!-- Tab Bar -->
+    <div class="tab-bar" role="tablist">
+      <button type="button" class="tab-btn active" role="tab" data-tab="track">Track</button>
+      <button type="button" class="tab-btn" role="tab" data-tab="apply">Apply</button>
+    </div>
+
+    <!-- Track Panel — existing clipper flow -->
+    <div id="track-panel" class="tab-panel">
+
     <!-- States -->
     <div id="state-loading" class="state">
       <div class="spinner"></div>
@@ -101,6 +110,24 @@
     <div id="state-error" class="state hidden">
       <p class="message error-text" id="error-message">Something went wrong.</p>
       <button class="btn btn-outline" id="retry-btn">Try Again</button>
+    </div>
+
+    </div><!-- /#track-panel -->
+
+    <!-- Apply Panel — autofill stub (full impl lands in Phase 1.2) -->
+    <div id="apply-panel" class="tab-panel hidden">
+      <div class="apply-stub">
+        <div class="stub-icon">&#9889;</div>
+        <p class="message">Autofill is coming soon</p>
+        <p class="hint">
+          When you open a job application form on Workday, Greenhouse, Lever, or
+          your favourite ATS, this tab will fill in your details for you and log
+          the application to your tracker.
+        </p>
+        <p class="hint">
+          For now, switch to <strong>Track</strong> to clip the job to your tracker.
+        </p>
+      </div>
     </div>
   </div>
 
