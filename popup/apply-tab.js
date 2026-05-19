@@ -2,12 +2,13 @@
 // Communicates with content/autofill/* modules via chrome.tabs.sendMessage.
 
 (function () {
-  const PROFILE_KEY = 'autofillProfile';
+  const PROFILE_CACHE_KEY = 'autofillProfileCache';
   const LOG_TOGGLE_KEY = 'autofillLogOnSubmit';
 
-  // Mock profile — used when no profile is stored yet. Lets users test the
-  // Fill flow before the backend profile API and web-app editor land.
-  const MOCK_PROFILE = {
+  // Last-resort fallback when the user isn't connected to a backend account
+  // and there's no cached profile. Lets unauthenticated installs still see
+  // the Fill flow work end-to-end on a test page.
+  const FALLBACK_PROFILE = {
     firstName: 'Rizabul',
     lastName: 'Md',
     email: 'rizabul.md@example.com',
@@ -42,6 +43,10 @@
     },
   };
 
+  // In-flight backend fetch — used to dedup calls and let handleFillClick
+  // await an Apply-tab-open prefetch that's still running.
+  let profilePromise = null;
+
   const STATES = ['loading', 'noform', 'permission', 'ready', 'filled', 'error'];
 
   // Tracks the origin pattern most recently shown in the permission prompt
@@ -67,16 +72,88 @@
     });
   }
 
-  function getProfile() {
+  function getApiToken() {
     return new Promise((resolve) => {
-      chrome.storage.local.get([PROFILE_KEY], (r) => {
-        const p = r[PROFILE_KEY];
-        if (p) return resolve(p);
-        chrome.storage.local.set({ [PROFILE_KEY]: MOCK_PROFILE }, () =>
-          resolve(MOCK_PROFILE)
-        );
-      });
+      chrome.storage.local.get(['apiToken'], (r) => resolve(r.apiToken || null));
     });
+  }
+
+  function getCachedProfile() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get([PROFILE_CACHE_KEY], (r) =>
+        resolve(r[PROFILE_CACHE_KEY] || null),
+      );
+    });
+  }
+
+  function setCachedProfile(profile) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set(
+        { [PROFILE_CACHE_KEY]: { profile, fetchedAt: Date.now() } },
+        () => resolve(),
+      );
+    });
+  }
+
+  // Single fetch to /api/autofill/profile. Returns the AutofillProfileData
+  // ("data" field of the API response) on success, null on any failure
+  // (no token, network error, 401, 404 when no profile yet, malformed).
+  async function fetchProfileFromBackend() {
+    const apiToken = await getApiToken();
+    if (!apiToken) return null;
+    let cfg;
+    try {
+      cfg = await loadConfig();
+    } catch {
+      return null;
+    }
+    try {
+      const res = await fetch(`${cfg.API_BASE}/api/autofill/profile`, {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json?.data || null;
+    } catch (err) {
+      console.warn('[Naukri Clear] autofill profile fetch failed:', err);
+      return null;
+    }
+  }
+
+  // Kick off (or reuse) a backend fetch. Caches the result on success.
+  function prefetchProfile() {
+    profilePromise = (async () => {
+      const fresh = await fetchProfileFromBackend();
+      if (fresh) {
+        await setCachedProfile(fresh);
+        return fresh;
+      }
+      return null;
+    })();
+    return profilePromise;
+  }
+
+  // Resolution order:
+  //   1. In-flight prefetch (from initApplyTab)
+  //   2. Cached profile (offline / previous session)
+  //   3. Fresh fetch (cold path, no prefetch happened)
+  //   4. FALLBACK_PROFILE (no token / no cache / no network — testing path)
+  async function getProfile() {
+    if (profilePromise) {
+      const fresh = await profilePromise;
+      if (fresh) return fresh;
+    }
+
+    const cached = await getCachedProfile();
+    if (cached?.profile) return cached.profile;
+
+    const synced = await fetchProfileFromBackend();
+    if (synced) {
+      await setCachedProfile(synced);
+      return synced;
+    }
+
+    return FALLBACK_PROFILE;
   }
 
   function getLogOnSubmitPref() {
@@ -185,6 +262,10 @@
 
   async function initApplyTab() {
     showApplyState('loading');
+
+    // Kick off backend profile fetch in parallel with scanning. Resolves
+    // by the time the user clicks Fill on a typical form (~hundreds of ms).
+    prefetchProfile();
 
     const tab = await getActiveTab();
     if (!tab?.id || !isInjectableUrl(tab.url)) {
