@@ -114,24 +114,78 @@
 
     </div><!-- /#track-panel -->
 
-    <!-- Apply Panel — autofill stub (full impl lands in Phase 1.2) -->
+    <!-- Apply Panel — autofill -->
     <div id="apply-panel" class="tab-panel hidden">
-      <div class="apply-stub">
+      <div id="state-apply-loading" class="state">
+        <div class="spinner"></div>
+        <p class="hint">Scanning page for application form...</p>
+      </div>
+
+      <div id="state-apply-noform" class="state hidden">
         <div class="stub-icon">&#9889;</div>
-        <p class="message">Autofill is coming soon</p>
+        <p class="message">No application form detected</p>
         <p class="hint">
-          When you open a job application form on Workday, Greenhouse, Lever, or
-          your favourite ATS, this tab will fill in your details for you and log
-          the application to your tracker.
+          Open a job application page (Workday, Greenhouse, Lever, iCIMS, etc.)
+          and try again.
         </p>
-        <p class="hint">
-          For now, switch to <strong>Track</strong> to clip the job to your tracker.
-        </p>
+        <button class="btn btn-outline" id="apply-rescan-noform">Rescan</button>
+      </div>
+
+      <div id="state-apply-ready" class="state hidden">
+        <div class="apply-detected">
+          <span class="ats-badge" id="apply-ats-badge">Form</span>
+          <span class="apply-summary">
+            <span id="apply-total-count">0</span> fields ·
+            <span id="apply-matched-count">0</span> will be filled
+          </span>
+        </div>
+
+        <div class="field">
+          <label for="apply-profile-select">Profile</label>
+          <select id="apply-profile-select">
+            <option value="default">Default</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="apply-fill-btn">Fill form</button>
+        </div>
+        <button class="btn btn-outline" id="apply-rescan-ready">Rescan</button>
+
+        <div id="apply-unresolved" class="apply-unresolved hidden">
+          <div class="unresolved-title">Need your input</div>
+          <ul id="apply-unresolved-list"></ul>
+        </div>
+      </div>
+
+      <div id="state-apply-filled" class="state hidden">
+        <div class="success-icon">&#10003;</div>
+        <p class="message">Filled <span id="apply-filled-count">0</span> fields</p>
+        <p class="hint" id="apply-unresolved-text"></p>
+
+        <label class="apply-toggle">
+          <input type="checkbox" id="apply-log-toggle" checked />
+          <span>Log as APPLIED when I submit</span>
+        </label>
+
+        <div id="apply-still-unresolved" class="apply-unresolved hidden">
+          <div class="unresolved-title">Still need your input</div>
+          <ul id="apply-still-unresolved-list"></ul>
+        </div>
+
+        <button class="btn btn-outline" id="apply-refill-btn">Fill again</button>
+      </div>
+
+      <div id="state-apply-error" class="state hidden">
+        <p class="message error-text" id="apply-error-message">Couldn't reach the page.</p>
+        <p class="hint">Reload the page and try again.</p>
+        <button class="btn btn-outline" id="apply-retry-btn">Retry</button>
       </div>
     </div>
   </div>
 
   <script src="../config.js"></script>
   <script src="popup.js"></script>
+  <script src="apply-tab.js"></script>
 </body>
 </html>

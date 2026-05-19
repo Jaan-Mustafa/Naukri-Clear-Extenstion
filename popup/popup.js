@@ -68,6 +68,12 @@ function showTab(tab) {
   document.getElementById('track-panel').classList.toggle('hidden', tab !== 'track');
   document.getElementById('apply-panel').classList.toggle('hidden', tab !== 'apply');
   setLastTab(tab);
+
+  // Lazy-init the Apply tab the first time (and every time) it's shown so a
+  // fresh scan reflects the current page.
+  if (tab === 'apply' && typeof window.NC_onApplyTabShown === 'function') {
+    window.NC_onApplyTabShown();
+  }
 }
 
 async function pickDefaultTab() {
