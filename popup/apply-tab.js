@@ -5,49 +5,11 @@
   const PROFILE_CACHE_KEY = 'autofillProfileCache';
   const LOG_TOGGLE_KEY = 'autofillLogOnSubmit';
 
-  // Last-resort fallback when the user isn't connected to a backend account
-  // and there's no cached profile. Lets unauthenticated installs still see
-  // the Fill flow work end-to-end on a test page.
-  const FALLBACK_PROFILE = {
-    firstName: 'Rizabul',
-    lastName: 'Md',
-    email: 'rizabul.md@example.com',
-    phone: '+919876543210',
-    address: {
-      line1: '123 MG Road',
-      city: 'Bengaluru',
-      state: 'Karnataka',
-      postalCode: '560001',
-      country: 'India',
-    },
-    links: {
-      linkedin: 'https://www.linkedin.com/in/rizabul-md',
-      github: 'https://github.com/rizabul-md',
-      portfolio: 'https://rizabul.dev',
-    },
-    currentRole: {
-      company: 'Acme Corp',
-      title: 'Software Engineer',
-      currentCtc: '20 LPA',
-    },
-    comp: {
-      expectedCtc: '30 LPA',
-      noticePeriodDays: 60,
-    },
-    experience: {
-      totalYears: 4,
-    },
-    workAuth: {
-      authorizedToWork: true,
-      requiresSponsorship: false,
-    },
-  };
-
   // In-flight backend fetch — used to dedup calls and let handleFillClick
   // await an Apply-tab-open prefetch that's still running.
   let profilePromise = null;
 
-  const STATES = ['loading', 'noform', 'permission', 'ready', 'filled', 'error'];
+  const STATES = ['loading', 'noform', 'permission', 'ready', 'filled', 'error', 'noprofile'];
 
   // Tracks the origin pattern most recently shown in the permission prompt
   // so the grant button knows what to request.
@@ -137,7 +99,9 @@
   //   1. In-flight prefetch (from initApplyTab)
   //   2. Cached profile (offline / previous session)
   //   3. Fresh fetch (cold path, no prefetch happened)
-  //   4. FALLBACK_PROFILE (no token / no cache / no network — testing path)
+  // Returns null when no profile is available (no token / no profile saved
+  // / network failure with empty cache). The caller surfaces a CTA instead
+  // of silently filling with mock data.
   async function getProfile() {
     if (profilePromise) {
       const fresh = await profilePromise;
@@ -153,7 +117,16 @@
       return synced;
     }
 
-    return FALLBACK_PROFILE;
+    return null;
+  }
+
+  async function openAutofillProfilePage() {
+    try {
+      const cfg = await loadConfig();
+      chrome.tabs.create({ url: `${cfg.APP_BASE}/profile/autofill` });
+    } catch (err) {
+      console.warn('[Naukri Clear] could not open profile page:', err);
+    }
   }
 
   function getLogOnSubmitPref() {
@@ -369,6 +342,13 @@
     btn.textContent = 'Filling...';
 
     const profile = await getProfile();
+    if (!profile) {
+      btn.disabled = false;
+      btn.textContent = original;
+      showApplyState('noprofile');
+      return;
+    }
+
     const result = await fillPage(profile);
 
     btn.disabled = false;
@@ -411,6 +391,8 @@
     showNoForm(hostEl?.textContent || null);
   });
   document.getElementById('apply-force-enable')?.addEventListener('click', handleForceEnableClick);
+  document.getElementById('apply-open-profile')?.addEventListener('click', openAutofillProfilePage);
+  document.getElementById('apply-noprofile-rescan')?.addEventListener('click', initApplyTab);
 
   // If permission lands via Chrome's settings UI (or any other path), reinit.
   if (chrome.permissions?.onAdded) {
