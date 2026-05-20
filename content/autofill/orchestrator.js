@@ -5,7 +5,7 @@
   // The orchestrator's listener is sticky — we can't unregister an old
   // chrome.runtime.onMessage handler from a previous injection. Versioning
   // it means the latest listener checks the version and old listeners no-op.
-  const VERSION = 2;
+  const VERSION = 3;
   if (window.__nc_autofill_orchestrator_version === VERSION) return;
   window.__nc_autofill_orchestrator_version = VERSION;
 
@@ -78,8 +78,21 @@
         resumeResult = window.NC_applyResume(fields, msg.resume);
       }
 
+      // Don't surface file inputs in the unresolved list — they're handled
+      // by the resume pass, not the text-field matcher, so leaving them in
+      // gives the false impression the user still needs to upload manually.
+      const resolvedUnresolved = unresolved.filter((f) => {
+        const el = f.element;
+        if (!(el instanceof HTMLInputElement) || el.type !== 'file') return true;
+        if (typeof window.NC_isResumeInput === 'function' && window.NC_isResumeInput(f)) {
+          // Resume-like file input: hide it only if we successfully uploaded
+          return resumeResult.uploaded === 0;
+        }
+        return true;
+      });
+
       sendResponse({
-        ...summarize(fields, matches, unresolved),
+        ...summarize(fields, matches, resolvedUnresolved),
         filled: applyResult.filled,
         filledPaths: applyResult.filledPaths,
         errors: applyResult.errors,
