@@ -44,6 +44,16 @@
       weight: 0.9,
     },
     {
+      profilePath: 'dateOfBirth',
+      patterns: {
+        autocomplete: 'bday',
+        type: 'date',
+        name: /date[\s_-]?of[\s_-]?birth|^dob$|birth[\s_-]?date|birthday/i,
+        label: /\b(date of birth|dob|birthday|birth date)\b/i,
+      },
+      weight: 0.95,
+    },
+    {
       profilePath: 'currentLocation',
       patterns: {
         name: /current[\s_-]?location|present[\s_-]?location|current[\s_-]?city/i,
