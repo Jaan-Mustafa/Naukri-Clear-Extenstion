@@ -6,7 +6,7 @@
 // fresh install when they differ, so we don't ship broken state to tabs
 // that were injected by an older build.
 (function () {
-  const VERSION = 2;
+  const VERSION = 3;
   if (window.NC_applyMatches && window.NC_AUTOFILL_VERSION === VERSION) return;
   window.NC_AUTOFILL_VERSION = VERSION;
 

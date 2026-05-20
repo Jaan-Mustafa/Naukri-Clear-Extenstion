@@ -2,9 +2,9 @@
 // Each entry maps a profile path (dot notation) to signal patterns the field
 // must satisfy. Higher-weight signals win. Anything scoring < 0.7 is unresolved.
 
+// Always reassign — taxonomy is pure data and we want updates to land
+// immediately on re-injection without needing a version dance.
 (function () {
-  if (window.NC_TAXONOMY) return;
-
   window.NC_TAXONOMY = [
     // Identity
     {
@@ -17,6 +17,15 @@
       weight: 1.0,
     },
     {
+      profilePath: 'middleName',
+      patterns: {
+        autocomplete: 'additional-name',
+        name: /^middle[\s_-]?name$|^mname$/i,
+        label: /\bmiddle\s*name\b/i,
+      },
+      weight: 0.95,
+    },
+    {
       profilePath: 'lastName',
       patterns: {
         autocomplete: 'family-name',
@@ -24,6 +33,23 @@
         label: /\b(last|family|sur)\s*name\b|surname/i,
       },
       weight: 1.0,
+    },
+    {
+      profilePath: 'gender',
+      patterns: {
+        autocomplete: 'sex',
+        name: /^(gender|sex)$/i,
+        label: /\b(gender|sex)\b/i,
+      },
+      weight: 0.9,
+    },
+    {
+      profilePath: 'currentLocation',
+      patterns: {
+        name: /current[\s_-]?location|present[\s_-]?location|current[\s_-]?city/i,
+        label: /\b(current location|present location|current city|where (are |do )?you (currently )?(live|based|located))\b/i,
+      },
+      weight: 0.9,
     },
     {
       profilePath: 'email',
@@ -158,8 +184,8 @@
     {
       profilePath: 'comp.noticePeriodDays',
       patterns: {
-        name: /notice[\s_-]?period/i,
-        label: /\bnotice period\b/i,
+        name: /notice[\s_-]?period|available[\s_-]?to[\s_-]?join|joining[\s_-]?days|days[\s_-]?to[\s_-]?join/i,
+        label: /\b(notice period|available to join|earliest start|joining (in )?days|days to join)\b/i,
       },
       weight: 0.9,
     },
