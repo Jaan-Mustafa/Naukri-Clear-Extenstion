@@ -2,8 +2,12 @@
 // runs scan → match → (optionally) apply, and reports a summary back.
 
 (function () {
-  if (window.__nc_autofill_orchestrator_installed) return;
-  window.__nc_autofill_orchestrator_installed = true;
+  // The orchestrator's listener is sticky — we can't unregister an old
+  // chrome.runtime.onMessage handler from a previous injection. Versioning
+  // it means the latest listener checks the version and old listeners no-op.
+  const VERSION = 2;
+  if (window.__nc_autofill_orchestrator_version === VERSION) return;
+  window.__nc_autofill_orchestrator_version = VERSION;
 
   const ATS_PATTERNS = [
     { name: 'workday', match: /workday\.com|myworkdayjobs\.com/i },
@@ -66,11 +70,21 @@
       // autofill-fill
       const profile = msg.profile || {};
       const applyResult = window.NC_applyMatches(matches, profile);
+
+      // File inputs (resume upload) are handled separately because they
+      // need a real File object, not a profile field value.
+      let resumeResult = { uploaded: 0, target: null };
+      if (msg.resume && typeof window.NC_applyResume === 'function') {
+        resumeResult = window.NC_applyResume(fields, msg.resume);
+      }
+
       sendResponse({
         ...summarize(fields, matches, unresolved),
         filled: applyResult.filled,
         filledPaths: applyResult.filledPaths,
         errors: applyResult.errors,
+        resumeUploaded: resumeResult.uploaded,
+        resumeTarget: resumeResult.target,
       });
       return false;
     } catch (err) {

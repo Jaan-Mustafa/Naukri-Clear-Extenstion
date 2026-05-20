@@ -55,6 +55,11 @@
     const nodes = Array.from(document.querySelectorAll(selector)).filter((el) => {
       if (el.disabled) return false;
       if (el.readOnly) return false;
+      // File inputs are commonly hidden behind styled dropzones (Workday,
+      // Lever, some Greenhouse layouts). Setting input.files on a hidden
+      // <input type="file"> still triggers the change event the form's
+      // React/Vue state machine watches, so we keep them in scope.
+      if (el.tagName === 'INPUT' && el.type === 'file') return true;
       if (!isVisible(el)) return false;
       return true;
     });

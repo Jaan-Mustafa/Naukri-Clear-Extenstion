@@ -40,7 +40,7 @@
     });
   }
 
-  function getCachedProfile() {
+  function getCachedView() {
     return new Promise((resolve) => {
       chrome.storage.local.get([PROFILE_CACHE_KEY], (r) =>
         resolve(r[PROFILE_CACHE_KEY] || null),
@@ -48,19 +48,24 @@
     });
   }
 
-  function setCachedProfile(profile) {
+  function setCachedView(view) {
     return new Promise((resolve) => {
       chrome.storage.local.set(
-        { [PROFILE_CACHE_KEY]: { profile, fetchedAt: Date.now() } },
+        { [PROFILE_CACHE_KEY]: { ...view, fetchedAt: Date.now() } },
         () => resolve(),
       );
     });
   }
 
-  // Single fetch to /api/autofill/profile. Returns the AutofillProfileData
-  // ("data" field of the API response) on success, null on any failure
-  // (no token, network error, 401, 404 when no profile yet, malformed).
-  async function fetchProfileFromBackend() {
+  function viewIsEmpty(view) {
+    return !view || (!view.data && !view.defaultResumeId);
+  }
+
+  // Single fetch to /api/autofill/profile. Returns
+  //   { data: AutofillProfileData | null, defaultResumeId: number | null }
+  // on success, or null on any failure (no token, network error, 401, 404,
+  // malformed). The caller treats empty data + empty resume as "no profile".
+  async function fetchAutofillView() {
     const apiToken = await getApiToken();
     if (!apiToken) return null;
     let cfg;
@@ -75,9 +80,12 @@
       });
       if (!res.ok) return null;
       const json = await res.json();
-      return json?.data || null;
+      return {
+        data: json?.data || null,
+        defaultResumeId: json?.defaultResumeId || null,
+      };
     } catch (err) {
-      console.warn('[Naukri Clear] autofill profile fetch failed:', err);
+      console.warn('[Naukri Clear] autofill view fetch failed:', err);
       return null;
     }
   }
@@ -85,9 +93,9 @@
   // Kick off (or reuse) a backend fetch. Caches the result on success.
   function prefetchProfile() {
     profilePromise = (async () => {
-      const fresh = await fetchProfileFromBackend();
-      if (fresh) {
-        await setCachedProfile(fresh);
+      const fresh = await fetchAutofillView();
+      if (fresh && !viewIsEmpty(fresh)) {
+        await setCachedView(fresh);
         return fresh;
       }
       return null;
@@ -97,27 +105,81 @@
 
   // Resolution order:
   //   1. In-flight prefetch (from initApplyTab)
-  //   2. Cached profile (offline / previous session)
+  //   2. Cached view (offline / previous session)
   //   3. Fresh fetch (cold path, no prefetch happened)
-  // Returns null when no profile is available (no token / no profile saved
-  // / network failure with empty cache). The caller surfaces a CTA instead
-  // of silently filling with mock data.
-  async function getProfile() {
+  // Returns null when no profile data AND no default resume are available.
+  // Caller routes to the "Set up your autofill profile" state in that case.
+  async function getAutofillView() {
     if (profilePromise) {
       const fresh = await profilePromise;
       if (fresh) return fresh;
     }
 
-    const cached = await getCachedProfile();
-    if (cached?.profile) return cached.profile;
+    const cached = await getCachedView();
+    if (cached && !viewIsEmpty(cached)) {
+      return { data: cached.data || null, defaultResumeId: cached.defaultResumeId || null };
+    }
 
-    const synced = await fetchProfileFromBackend();
-    if (synced) {
-      await setCachedProfile(synced);
+    const synced = await fetchAutofillView();
+    if (synced && !viewIsEmpty(synced)) {
+      await setCachedView(synced);
       return synced;
     }
 
     return null;
+  }
+
+  // ---------- Resume bytes (Phase 2 resume upload) ----------
+
+  function arrayBufferToBase64(buffer) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([buffer]);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const idx = result.indexOf(',');
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // Returns { name, type, base64 } or null. Uses the API-side proxy at
+  // /api/resumes/{id}/file rather than the signed R2 URL — that way the
+  // request stays on api.naukriclear.com (already in our host_permissions)
+  // and we don't hit R2 CORS rejection from the chrome-extension:// origin.
+  // base64 is what gets passed through chrome.tabs.sendMessage to the
+  // content script (raw binary doesn't survive JSON serialization).
+  async function fetchResumePayload(resumeId) {
+    if (!resumeId) return null;
+    const apiToken = await getApiToken();
+    if (!apiToken) return null;
+    let cfg;
+    try {
+      cfg = await loadConfig();
+    } catch {
+      return null;
+    }
+    try {
+      const res = await fetch(`${cfg.API_BASE}/api/resumes/${resumeId}/file`, {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      });
+      if (!res.ok) return null;
+      const buffer = await res.arrayBuffer();
+      const base64 = await arrayBufferToBase64(buffer);
+
+      // Filename comes from Content-Disposition: inline; filename="resume.pdf"
+      const dispo = res.headers.get('content-disposition') || '';
+      const match = dispo.match(/filename="?([^";]+)"?/i);
+      const name = (match && match[1]) || 'resume.pdf';
+      const type = res.headers.get('content-type') || 'application/pdf';
+
+      return { name, type, base64 };
+    } catch (err) {
+      console.warn('[Naukri Clear] resume bytes fetch failed:', err);
+      return null;
+    }
   }
 
   async function openAutofillProfilePage() {
@@ -184,13 +246,14 @@
     }
   }
 
-  async function fillPage(profile) {
+  async function fillPage(profile, resume) {
     const tab = await getActiveTab();
     if (!tab?.id) return { ok: false, error: 'no-tab' };
     try {
       const response = await chrome.tabs.sendMessage(tab.id, {
         action: 'autofill-fill',
         profile,
+        resume,
       });
       return response || { ok: false, error: 'no-response' };
     } catch (err) {
@@ -341,15 +404,23 @@
     const original = btn.textContent;
     btn.textContent = 'Filling...';
 
-    const profile = await getProfile();
-    if (!profile) {
+    const view = await getAutofillView();
+    if (!view) {
       btn.disabled = false;
       btn.textContent = original;
       showApplyState('noprofile');
       return;
     }
 
-    const result = await fillPage(profile);
+    // Resume fetch happens in parallel with… nothing else in handleFillClick,
+    // so just await it inline. Typical PDFs are 50KB-2MB so this is fast.
+    btn.textContent = view.defaultResumeId ? 'Fetching resume...' : 'Filling...';
+    const resume = view.defaultResumeId
+      ? await fetchResumePayload(view.defaultResumeId)
+      : null;
+
+    btn.textContent = 'Filling...';
+    const result = await fillPage(view.data || {}, resume);
 
     btn.disabled = false;
     btn.textContent = original;
@@ -364,9 +435,12 @@
     document.getElementById('apply-filled-count').textContent = result.filled || 0;
 
     const unresolvedCount = result.unresolvedCount || 0;
+    const resumeNote = result.resumeUploaded
+      ? ` Resume uploaded${result.resumeTarget ? ` to "${result.resumeTarget}"` : ''}.`
+      : '';
     document.getElementById('apply-unresolved-text').textContent = unresolvedCount
-      ? `${unresolvedCount} field${unresolvedCount === 1 ? '' : 's'} still need your input — review and submit.`
-      : 'All matched fields filled. Review the form and submit.';
+      ? `${unresolvedCount} field${unresolvedCount === 1 ? '' : 's'} still need your input — review and submit.${resumeNote}`
+      : `All matched fields filled. Review the form and submit.${resumeNote}`;
 
     renderUnresolved(
       document.getElementById('apply-still-unresolved-list'),
