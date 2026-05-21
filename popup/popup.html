@@ -213,6 +213,15 @@
         <button class="btn btn-primary" id="apply-open-profile">Open Naukri Clear</button>
         <button class="btn btn-outline" id="apply-noprofile-rescan">I just saved it — rescan</button>
       </div>
+
+      <!-- Quick Copy — shown whenever a profile is loaded, regardless of form state -->
+      <div id="quick-copy-section" class="quick-copy-section hidden">
+        <button type="button" class="quick-copy-toggle" id="quick-copy-toggle" aria-expanded="false">
+          <span>Quick Copy</span>
+          <span class="quick-copy-chevron">&#9660;</span>
+        </button>
+        <div class="quick-copy-list hidden" id="quick-copy-list"></div>
+      </div>
     </div>
   </div>
 

@@ -262,6 +262,168 @@
     }
   }
 
+  // ---------- Quick Copy ----------
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildCopyItems(p) {
+    const items = [];
+    function cat(label) { items.push({ type: 'category', label }); }
+    function add(label, value) {
+      if (value === null || value === undefined || value === '') return;
+      items.push({ label, value: String(value) });
+    }
+
+    const fullName = [p.firstName, p.middleName, p.lastName].filter(Boolean).join(' ').trim();
+    if (fullName || p.email || p.phone) {
+      cat('Identity');
+      if (fullName) add('Full Name', fullName);
+      if (p.firstName) add('First Name', p.firstName);
+      if (p.middleName) add('Middle Name', p.middleName);
+      if (p.lastName) add('Last Name', p.lastName);
+      add('Email', p.email);
+      add('Phone', p.phone);
+      add('Date of Birth', p.dateOfBirth);
+      add('Gender', p.gender);
+    }
+
+    const cityState = p.address && [p.address.city, p.address.state].filter(Boolean).join(', ');
+    const loc = p.currentLocation || cityState;
+    if (loc || (p.address && p.address.line1)) {
+      cat('Location');
+      add('Current Location', loc);
+      if (p.address) {
+        const parts = [p.address.line1, p.address.city, p.address.state, p.address.postalCode, p.address.country].filter(Boolean);
+        if (parts.length) add('Full Address', parts.join(', '));
+      }
+    }
+
+    if (p.links && (p.links.linkedin || p.links.github || p.links.portfolio)) {
+      cat('Links');
+      add('LinkedIn', p.links.linkedin);
+      add('GitHub', p.links.github);
+      add('Portfolio', p.links.portfolio);
+    }
+
+    if (p.currentRole && (p.currentRole.company || p.currentRole.title)) {
+      cat('Current Role');
+      add('Company', p.currentRole.company);
+      add('Job Title', p.currentRole.title);
+      add('Current CTC', p.currentRole.currentCtc);
+    }
+
+    if (p.comp && (p.comp.expectedCtc || p.comp.noticePeriodDays != null)) {
+      cat('Compensation');
+      add('Expected CTC', p.comp.expectedCtc);
+      if (p.comp.noticePeriodDays != null) add('Notice Period', `${p.comp.noticePeriodDays} days`);
+    }
+
+    if (p.experience && p.experience.totalYears != null) {
+      cat('Experience');
+      add('Total Years', `${p.experience.totalYears} years`);
+    }
+
+    if (p.workAuth) {
+      cat('Work Authorization');
+      if (p.workAuth.authorizedToWork != null)
+        add('Authorized to Work', p.workAuth.authorizedToWork ? 'Yes' : 'No');
+      if (p.workAuth.requiresSponsorship != null)
+        add('Requires Sponsorship', p.workAuth.requiresSponsorship ? 'Yes' : 'No');
+    }
+
+    if (Array.isArray(p.experiences) && p.experiences.length > 0) {
+      cat('Work Experience');
+      p.experiences.forEach((exp, i) => {
+        const title = [exp.jobTitle, exp.companyName].filter(Boolean).join(' at ');
+        const end = exp.currentlyWorking ? 'Present' : exp.dateOfRelieving;
+        const period = [exp.dateOfJoining, end].filter(Boolean).join(' → ');
+        const parts = [title, period, exp.location].filter(Boolean);
+        if (parts.length) add(`Experience ${i + 1}`, parts.join('\n'));
+      });
+    }
+
+    if (Array.isArray(p.education) && p.education.length > 0) {
+      cat('Education');
+      p.education.forEach((edu, i) => {
+        const degree = [edu.course, edu.branch].filter(Boolean).join(', ');
+        const where = edu.university ? `at ${edu.university}` : '';
+        const period = [edu.startDate, edu.endDate].filter(Boolean).join(' → ');
+        const parts = [degree, where, period, edu.location].filter(Boolean);
+        if (parts.length) add(`Education ${i + 1}`, parts.join('\n'));
+      });
+    }
+
+    return items;
+  }
+
+  function copyToClipboard(value, btn) {
+    const done = () => {
+      const prev = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = prev; btn.classList.remove('copied'); }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(done).catch(() => {
+        execCopy(value);
+        done();
+      });
+    } else {
+      execCopy(value);
+      done();
+    }
+  }
+
+  function execCopy(value) {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+
+  function renderQuickCopy(profile) {
+    const section = document.getElementById('quick-copy-section');
+    const list = document.getElementById('quick-copy-list');
+    if (!section || !list || !profile) return;
+
+    const items = buildCopyItems(profile);
+    if (!items.length) return;
+
+    list.innerHTML = '';
+    for (const item of items) {
+      if (item.type === 'category') {
+        const div = document.createElement('div');
+        div.className = 'copy-category';
+        div.textContent = item.label;
+        list.appendChild(div);
+      } else {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'copy-item';
+        wrapper.innerHTML = `
+          <div class="copy-meta">
+            <span class="copy-label">${escHtml(item.label)}</span>
+            <button class="copy-btn" type="button">Copy</button>
+          </div>
+          <div class="copy-value">${escHtml(item.value)}</div>
+        `;
+        const btn = wrapper.querySelector('.copy-btn');
+        btn.addEventListener('click', () => copyToClipboard(item.value, btn));
+        list.appendChild(wrapper);
+      }
+    }
+
+    section.classList.remove('hidden');
+  }
+
   function formatAtsName(ats) {
     if (!ats || ats === 'generic') return 'Generic form';
     return ats.charAt(0).toUpperCase() + ats.slice(1);
@@ -302,7 +464,17 @@
 
     // Kick off backend profile fetch in parallel with scanning. Resolves
     // by the time the user clicks Fill on a typical form (~hundreds of ms).
-    prefetchProfile();
+    // Also populates Quick Copy as soon as profile data lands — fall back
+    // to cached data when the backend is unreachable so the user can still
+    // copy answers offline.
+    prefetchProfile().then(async (view) => {
+      if (view?.data) {
+        renderQuickCopy(view.data);
+        return;
+      }
+      const cached = await getCachedView();
+      if (cached?.data) renderQuickCopy(cached.data);
+    });
 
     const tab = await getActiveTab();
     if (!tab?.id || !isInjectableUrl(tab.url)) {
@@ -468,6 +640,16 @@
   document.getElementById('apply-force-enable')?.addEventListener('click', handleForceEnableClick);
   document.getElementById('apply-open-profile')?.addEventListener('click', openAutofillProfilePage);
   document.getElementById('apply-noprofile-rescan')?.addEventListener('click', initApplyTab);
+
+  // Quick Copy toggle — expand/collapse the snippet list
+  document.getElementById('quick-copy-toggle')?.addEventListener('click', () => {
+    const toggle = document.getElementById('quick-copy-toggle');
+    const list = document.getElementById('quick-copy-list');
+    if (!toggle || !list) return;
+    const isOpen = !list.classList.contains('hidden');
+    list.classList.toggle('hidden', isOpen);
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+  });
 
   // If permission lands via Chrome's settings UI (or any other path), reinit.
   if (chrome.permissions?.onAdded) {
