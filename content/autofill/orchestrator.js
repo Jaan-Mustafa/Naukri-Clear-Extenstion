@@ -5,7 +5,7 @@
   // The orchestrator's listener is sticky — we can't unregister an old
   // chrome.runtime.onMessage handler from a previous injection. Versioning
   // it means the latest listener checks the version and old listeners no-op.
-  const VERSION = 3;
+  const VERSION = 4;
   if (window.__nc_autofill_orchestrator_version === VERSION) return;
   window.__nc_autofill_orchestrator_version = VERSION;
 
@@ -60,16 +60,33 @@
 
     try {
       const fields = window.NC_scanFields();
-      const { matches, unresolved } = window.NC_matchFields(fields, window.NC_TAXONOMY);
+      const profile = msg.profile || {};
+
+      // Multi-entry sections (Experience, Education, ...) — parse indexed
+      // field names like ExperienceDetails[0].companyName and bind each
+      // block to one profile array entry. Fields consumed here are removed
+      // from the single-field matcher's input so they're not double-bound.
+      let groupResult = { matches: [], consumed: new Set() };
+      if (typeof window.NC_matchGroupedFields === 'function') {
+        groupResult = window.NC_matchGroupedFields(fields, profile);
+      }
+
+      const remainingFields = fields.filter(
+        (f) => !groupResult.consumed.has(f.element),
+      );
+      const { matches, unresolved } = window.NC_matchFields(
+        remainingFields,
+        window.NC_TAXONOMY,
+      );
 
       if (msg.action === 'autofill-scan') {
-        sendResponse(summarize(fields, matches, unresolved));
+        sendResponse(summarize(fields, matches.concat(groupResult.matches), unresolved));
         return false;
       }
 
-      // autofill-fill
-      const profile = msg.profile || {};
-      const applyResult = window.NC_applyMatches(matches, profile);
+      // autofill-fill — apply group matches + single-field matches together
+      const allMatches = groupResult.matches.concat(matches);
+      const applyResult = window.NC_applyMatches(allMatches, profile);
 
       // File inputs (resume upload) are handled separately because they
       // need a real File object, not a profile field value.
@@ -92,7 +109,7 @@
       });
 
       sendResponse({
-        ...summarize(fields, matches, resolvedUnresolved),
+        ...summarize(fields, allMatches, resolvedUnresolved),
         filled: applyResult.filled,
         filledPaths: applyResult.filledPaths,
         errors: applyResult.errors,

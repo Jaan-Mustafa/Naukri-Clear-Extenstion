@@ -220,6 +220,7 @@
         'content/autofill/profile-taxonomy.js',
         'content/autofill/scan-form.js',
         'content/autofill/semantic-match.js',
+        'content/autofill/group-match.js',
         'content/autofill/apply-values.js',
         'content/autofill/orchestrator.js',
       ],

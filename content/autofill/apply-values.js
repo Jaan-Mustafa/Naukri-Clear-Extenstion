@@ -6,7 +6,7 @@
 // fresh install when they differ, so we don't ship broken state to tabs
 // that were injected by an older build.
 (function () {
-  const VERSION = 3;
+  const VERSION = 4;
   if (window.NC_applyMatches && window.NC_AUTOFILL_VERSION === VERSION) return;
   window.NC_AUTOFILL_VERSION = VERSION;
 
@@ -43,6 +43,59 @@
 
   function getProfileValue(profile, path) {
     return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), profile);
+  }
+
+  // ---------- Date format adapter ----------
+  // Profile stores dates as either "YYYY-MM" (from type=month picker) or
+  // "YYYY-MM-DD" (from type=date). Forms accept many formats; we reshape
+  // to match the field's placeholder when we can recognize the pattern.
+  const MONTHS_LONG = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  function formatDateForField(rawValue, field) {
+    if (typeof rawValue !== 'string') return String(rawValue);
+    const placeholder = (field.signals && field.signals.placeholder) || '';
+
+    // "YYYY-MM" — our type=month picker output
+    let m = rawValue.match(/^(\d{4})-(\d{2})$/);
+    if (m) {
+      const year = m[1];
+      const monthIdx = parseInt(m[2], 10) - 1;
+      const monthName = MONTHS_LONG[monthIdx] || m[2];
+      // "16 June 2014" / "1 June 2014" — day-first long
+      if (/^\d{1,2}\s+[a-z]+\s+\d{4}/i.test(placeholder)) return `1 ${monthName} ${year}`;
+      // "June 2014" — month-year
+      if (/^[a-z]+\s+\d{4}$/i.test(placeholder)) return `${monthName} ${year}`;
+      // "06/2014" or "MM/YYYY"
+      if (/^(\d{1,2}\/\d{4}|MM\/YYYY)$/i.test(placeholder)) return `${m[2]}/${year}`;
+      // "2014-06" — keep as-is
+      return rawValue;
+    }
+
+    // "YYYY-MM-DD" — our type=date picker output
+    m = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const year = m[1];
+      const monthIdx = parseInt(m[2], 10) - 1;
+      const monthName = MONTHS_LONG[monthIdx] || m[2];
+      const day = parseInt(m[3], 10);
+      // "16 June 2014"
+      if (/^\d{1,2}\s+[a-z]+\s+\d{4}/i.test(placeholder)) return `${day} ${monthName} ${year}`;
+      // "June 16, 2014" — US style
+      if (/^[a-z]+\s+\d{1,2},?\s+\d{4}/i.test(placeholder)) return `${monthName} ${day}, ${year}`;
+      // "06/16/2014" — US slash
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(placeholder) || /^MM\/DD\/YYYY/i.test(placeholder)) {
+        return `${m[2]}/${m[3]}/${year}`;
+      }
+      // "16/06/2014" — UK / IN slash
+      if (/^DD\/MM\/YYYY/i.test(placeholder)) return `${m[3]}/${m[2]}/${year}`;
+      // ISO — keep
+      return rawValue;
+    }
+
+    return rawValue;
   }
 
   function matchSelectOption(select, value) {
@@ -112,7 +165,10 @@
             }
           }
         } else {
-          setNativeInputValue(el, String(raw));
+          // Date-shaped values (YYYY-MM or YYYY-MM-DD) get reshaped to the
+          // form's preferred format based on its placeholder, so a profile
+          // "2014-06" lands as "1 June 2014" on a Keka-style input.
+          setNativeInputValue(el, formatDateForField(String(raw), m.field));
           filled++;
           filledPaths.push(m.profilePath);
         }
