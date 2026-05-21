@@ -45,25 +45,25 @@
 
       .launcher-btn {
         position: fixed;
-        right: 20px;
-        bottom: 20px;
+        right: 0;
+        top: 120px;
         width: ${BUTTON_SIZE}px;
         height: ${BUTTON_SIZE}px;
-        border-radius: 50%;
+        border-radius: 10px 0 0 10px;
         border: none;
         background: #2547a0;
         cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        box-shadow: -3px 4px 14px rgba(0, 0, 0, 0.18);
         pointer-events: auto;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
-        transition: transform 0.15s, box-shadow 0.15s;
+        transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
       }
       .launcher-btn:hover {
-        transform: scale(1.06);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+        transform: translateX(-2px);
+        box-shadow: -5px 6px 18px rgba(0, 0, 0, 0.22);
       }
       .launcher-btn img {
         width: 28px;
