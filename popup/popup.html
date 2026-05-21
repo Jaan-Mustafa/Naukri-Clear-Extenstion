@@ -172,27 +172,12 @@
           <button class="btn btn-primary" id="apply-fill-btn">Fill form</button>
         </div>
         <button class="btn btn-outline" id="apply-rescan-ready">Rescan</button>
-
-        <div id="apply-unresolved" class="apply-unresolved hidden">
-          <div class="unresolved-title">Need your input</div>
-          <ul id="apply-unresolved-list"></ul>
-        </div>
       </div>
 
       <div id="state-apply-filled" class="state hidden">
         <div class="success-icon">&#10003;</div>
         <p class="message">Filled <span id="apply-filled-count">0</span> fields</p>
         <p class="hint" id="apply-unresolved-text"></p>
-
-        <label class="apply-toggle">
-          <input type="checkbox" id="apply-log-toggle" checked />
-          <span>Log as APPLIED when I submit</span>
-        </label>
-
-        <div id="apply-still-unresolved" class="apply-unresolved hidden">
-          <div class="unresolved-title">Still need your input</div>
-          <ul id="apply-still-unresolved-list"></ul>
-        </div>
 
         <button class="btn btn-outline" id="apply-refill-btn">Fill again</button>
       </div>

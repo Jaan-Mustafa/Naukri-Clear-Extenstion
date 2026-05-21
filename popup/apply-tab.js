@@ -3,7 +3,6 @@
 
 (function () {
   const PROFILE_CACHE_KEY = 'autofillProfileCache';
-  const LOG_TOGGLE_KEY = 'autofillLogOnSubmit';
 
   // In-flight backend fetch — used to dedup calls and let handleFillClick
   // await an Apply-tab-open prefetch that's still running.
@@ -189,18 +188,6 @@
     } catch (err) {
       console.warn('[Naukri Clear] could not open profile page:', err);
     }
-  }
-
-  function getLogOnSubmitPref() {
-    return new Promise((resolve) => {
-      chrome.storage.local.get([LOG_TOGGLE_KEY], (r) => {
-        resolve(r[LOG_TOGGLE_KEY] !== false); // default ON
-      });
-    });
-  }
-
-  function setLogOnSubmitPref(v) {
-    chrome.storage.local.set({ [LOG_TOGGLE_KEY]: v });
   }
 
   async function getActiveTab() {
@@ -429,20 +416,6 @@
     return ats.charAt(0).toUpperCase() + ats.slice(1);
   }
 
-  function renderUnresolved(listEl, wrapEl, labels) {
-    listEl.innerHTML = '';
-    if (!labels || !labels.length) {
-      wrapEl.classList.add('hidden');
-      return;
-    }
-    for (const lbl of labels) {
-      const li = document.createElement('li');
-      li.textContent = lbl;
-      listEl.appendChild(li);
-    }
-    wrapEl.classList.remove('hidden');
-  }
-
   function showPermissionPrompt(hostname, origin) {
     pendingPermissionOrigin = origin;
     const hostEl = document.getElementById('apply-perm-host');
@@ -529,12 +502,6 @@
     document.getElementById('apply-total-count').textContent = result.totalFields;
     document.getElementById('apply-matched-count').textContent = result.matchedCount;
 
-    renderUnresolved(
-      document.getElementById('apply-unresolved-list'),
-      document.getElementById('apply-unresolved'),
-      result.unresolvedLabels
-    );
-
     showApplyState('ready');
   }
 
@@ -615,12 +582,6 @@
       ? `${unresolvedCount} field${unresolvedCount === 1 ? '' : 's'} still need your input — review and submit.${resumeNote}`
       : `All matched fields filled. Review the form and submit.${resumeNote}`;
 
-    renderUnresolved(
-      document.getElementById('apply-still-unresolved-list'),
-      document.getElementById('apply-still-unresolved'),
-      result.unresolvedLabels
-    );
-
     showApplyState('filled');
   }
 
@@ -660,14 +621,6 @@
         initApplyTab();
       }
     });
-  }
-
-  const logToggle = document.getElementById('apply-log-toggle');
-  if (logToggle) {
-    getLogOnSubmitPref().then((v) => {
-      logToggle.checked = v;
-    });
-    logToggle.addEventListener('change', () => setLogOnSubmitPref(logToggle.checked));
   }
 
   // popup.js will call this whenever the Apply tab becomes active.

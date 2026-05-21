@@ -159,59 +159,6 @@ body {
   color: #6b6962;
 }
 
-.apply-unresolved {
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px 12px;
-  background: #fef9ec;
-  border: 1px solid #f3e1a8;
-  border-radius: 6px;
-  text-align: left;
-}
-
-.unresolved-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #7a5f0a;
-  margin-bottom: 4px;
-}
-
-.apply-unresolved ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.apply-unresolved li {
-  font-size: 12px;
-  color: #37352f;
-  padding: 2px 0;
-  border-bottom: 1px solid #f3e1a8;
-}
-
-.apply-unresolved li:last-child {
-  border-bottom: none;
-}
-
-.apply-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #fbfaf8;
-  border: 1px solid #e8e5e0;
-  border-radius: 6px;
-  font-size: 12px;
-  color: #37352f;
-  cursor: pointer;
-}
-
-.apply-toggle input {
-  margin: 0;
-  cursor: pointer;
-}
-
 /* Link-style button — for low-emphasis "force enable" path */
 .btn-link {
   display: inline;
