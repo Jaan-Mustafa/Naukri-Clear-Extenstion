@@ -77,6 +77,10 @@
         autocomplete: 'tel',
         type: 'tel',
         name: /phone|mobile|tel(ephone)?/i,
+        // Country-code helpers (e.g. mobilePhone.countryCode on Keka) also
+        // match "phone"/"mobile" but they're separate selects, not the
+        // number itself. Excluding them lets the real number input bind.
+        excludeName: /country[\s_-]?code|countrycode|dial[\s_-]?code|^cc$|area[\s_-]?code|\bisd\b/i,
         label: /\b(phone|mobile|telephone|contact number)\b/i,
       },
       weight: 0.95,
@@ -124,6 +128,8 @@
       patterns: {
         autocomplete: 'country|country-name',
         name: /country/i,
+        // Same exclusion — phone country-code helpers also contain "country".
+        excludeName: /country[\s_-]?code|countrycode|dial[\s_-]?code/i,
         label: /\bcountry\b/i,
       },
       weight: 0.9,

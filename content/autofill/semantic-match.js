@@ -1,13 +1,26 @@
 // Score each scanned field against the taxonomy; produce matches + unresolved.
 
+// Always reassign so taxonomy/scoring updates take effect on re-injection.
 (function () {
-  if (window.NC_matchFields) return;
-
   const CONFIDENCE_THRESHOLD = 0.7;
 
   function scoreField(field, entry) {
     const sig = field.signals;
     const p = entry.patterns || {};
+
+    // Hard exclusion — short-circuit before any positive matching. Used to
+    // keep country-code helpers from binding to the phone slot, etc.
+    if (p.excludeName) {
+      if (sig.name && p.excludeName.test(sig.name)) return 0;
+      if (sig.id && p.excludeName.test(sig.id)) return 0;
+    }
+    if (p.excludeLabel) {
+      const haystack = [sig.label, sig.ariaLabel, sig.placeholder]
+        .filter(Boolean)
+        .join(' | ');
+      if (haystack && p.excludeLabel.test(haystack)) return 0;
+    }
+
     let best = 0;
 
     // autocomplete attribute is the gold signal
