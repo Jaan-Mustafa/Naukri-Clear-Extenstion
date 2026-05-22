@@ -126,6 +126,22 @@
     current: 'currentlyWorking',
     presentlyworking: 'currentlyWorking',
     presentemployer: 'currentlyWorking',
+
+    roledescription: 'roleDescription',
+    description: 'roleDescription',
+    jobdescription: 'roleDescription',
+    responsibilities: 'roleDescription',
+    rolesandresponsibilities: 'roleDescription',
+    keyresponsibilities: 'roleDescription',
+    jobresponsibilities: 'roleDescription',
+    workdescription: 'roleDescription',
+    summary: 'roleDescription',
+    rolesummary: 'roleDescription',
+    achievements: 'roleDescription',
+    keyachievements: 'roleDescription',
+    accomplishments: 'roleDescription',
+    whatyoudid: 'roleDescription',
+    notes: 'roleDescription',
   };
 
   const EDUCATION_FIELDS = {

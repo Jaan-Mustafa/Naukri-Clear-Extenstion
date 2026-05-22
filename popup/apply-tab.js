@@ -332,6 +332,11 @@
         const period = [exp.dateOfJoining, end].filter(Boolean).join(' → ');
         const parts = [title, period, exp.location].filter(Boolean);
         if (parts.length) add(`Experience ${i + 1}`, parts.join('\n'));
+        // Role description gets its own row — it's long-form and usually
+        // pasted into a separate textarea on the form.
+        if (exp.roleDescription) {
+          add(`Experience ${i + 1} — Description`, exp.roleDescription);
+        }
       });
     }
 
@@ -346,35 +351,63 @@
       });
     }
 
+    // Long-form behavioral answers — pasted into cover-letter / screening
+    // textareas on the form. Only emit ones the user has actually filled in.
+    const sa = p.savedAnswers || {};
+    const savedAnswerRows = [
+      ['Complex system explained simply', sa.complexSystem],
+      ['Why this company', sa.whyCompany],
+      ['Why this position / good fit', sa.whyPosition],
+      ['Why leaving current job', sa.whyLeaving],
+      ['Career goals / 5-year vision', sa.careerGoals],
+      ['Strengths & weaknesses', sa.strengthsWeaknesses],
+      ['Failure & lesson learned', sa.failureLesson],
+    ].filter(([, v]) => v && String(v).trim());
+    if (savedAnswerRows.length) {
+      cat('Saved Answers');
+      for (const [label, value] of savedAnswerRows) add(label, value);
+    }
+
     return items;
   }
 
   function copyToClipboard(value, btn) {
-    const done = () => {
-      const prev = btn.textContent;
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = prev; btn.classList.remove('copied'); }, 1500);
+    const prev = btn.textContent;
+    const flash = (label, cls) => {
+      btn.textContent = label;
+      btn.classList.add(cls);
+      setTimeout(() => { btn.textContent = prev; btn.classList.remove(cls); }, 1800);
     };
+    const ok = () => flash('Copied!', 'copied');
+    const fail = () => flash('Press Cmd+C', 'copied');
+
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).then(done).catch(() => {
-        execCopy(value);
-        done();
+      navigator.clipboard.writeText(value).then(ok).catch(() => {
+        if (execCopy(value)) ok();
+        else fail();
       });
+    } else if (execCopy(value)) {
+      ok();
     } else {
-      execCopy(value);
-      done();
+      fail();
     }
   }
 
+  // Falls back to the legacy textarea + execCommand path when navigator.clipboard
+  // is blocked by a Permissions Policy. Returns true on success.
   function execCopy(value) {
-    const ta = document.createElement('textarea');
-    ta.value = value;
-    ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
   }
 
   function renderQuickCopy(profile) {

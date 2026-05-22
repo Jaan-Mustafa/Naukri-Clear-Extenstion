@@ -6,7 +6,7 @@
 // fresh install when they differ, so we don't ship broken state to tabs
 // that were injected by an older build.
 (function () {
-  const VERSION = 4;
+  const VERSION = 5;
   if (window.NC_applyMatches && window.NC_AUTOFILL_VERSION === VERSION) return;
   window.NC_AUTOFILL_VERSION = VERSION;
 
@@ -19,13 +19,72 @@
         ? HTMLTextAreaElement.prototype
         : HTMLInputElement.prototype;
     const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
-    if (descriptor && descriptor.set) {
-      descriptor.set.call(input, value);
-    } else {
-      input.value = value;
+    const str = String(value);
+
+    function assign(v) {
+      if (descriptor && descriptor.set) {
+        descriptor.set.call(input, v);
+      } else {
+        input.value = v;
+      }
     }
+
+    try {
+      assign(str);
+    } catch (err) {
+      // Native setter rejected the value — happens when a formatted phone
+      // ("+91 7838397736") lands on <input type="number"> or a strict
+      // type="tel" pattern. Strip everything except digits and retry. If
+      // that still fails, rethrow so applyMatches' catch records it.
+      const digitsOnly = str.replace(/[^\d]/g, '');
+      if (digitsOnly && digitsOnly !== str) {
+        try {
+          assign(digitsOnly);
+        } catch {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // ---------- Phone format adapter ----------
+  // Profile stores phone as "+91 7838397736" (canonical with country code +
+  // local format). Forms vary — many strip the country code, many reject
+  // non-digit chars on type="number". Reshape based on the input shape.
+  function formatPhoneForField(rawValue, field) {
+    if (typeof rawValue !== 'string') return String(rawValue);
+    const el = field.element;
+    // Only act on plausibly-phone values to avoid mangling other text.
+    const looksLikePhone = /^[+\d][\d\s\-()]{6,}$/.test(rawValue);
+    if (!looksLikePhone) return rawValue;
+
+    const digitsOnly = rawValue.replace(/[^\d]/g, '');
+
+    // type="number" rejects "+" and spaces outright — must strip.
+    if (el && el.type === 'number') return digitsOnly;
+
+    // type="tel" with a strict pattern: if the raw value fails the pattern
+    // but digits-only passes, use digits.
+    if (el && el.type === 'tel') {
+      const pattern = el.getAttribute('pattern');
+      if (pattern) {
+        try {
+          const re = new RegExp(`^(?:${pattern})$`);
+          if (!re.test(rawValue) && re.test(digitsOnly)) return digitsOnly;
+        } catch {
+          /* invalid pattern attribute — ignore */
+        }
+      }
+      // No pattern or both forms pass — keep original.
+      return rawValue;
+    }
+
+    return rawValue;
   }
 
   function setSelectValue(select, value) {
@@ -165,10 +224,12 @@
             }
           }
         } else {
-          // Date-shaped values (YYYY-MM or YYYY-MM-DD) get reshaped to the
-          // form's preferred format based on its placeholder, so a profile
-          // "2014-06" lands as "1 June 2014" on a Keka-style input.
-          setNativeInputValue(el, formatDateForField(String(raw), m.field));
+          // Reshape value per field shape: dates → form's expected pattern
+          // (Keka "1 June 2014"), phones → digits-only on type=number /
+          // strict tel patterns. Non-matching values pass through unchanged.
+          let shaped = formatDateForField(String(raw), m.field);
+          shaped = formatPhoneForField(shaped, m.field);
+          setNativeInputValue(el, shaped);
           filled++;
           filledPaths.push(m.profilePath);
         }

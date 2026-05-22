@@ -138,7 +138,7 @@
         <span>Naukri Clear</span>
         <button class="panel-close" id="panel-close" aria-label="Close">&times;</button>
       </div>
-      <iframe class="panel-frame" id="panel-frame" title="Naukri Clear"></iframe>
+      <iframe class="panel-frame" id="panel-frame" title="Naukri Clear" allow="clipboard-write; clipboard-read"></iframe>
     </aside>
   `;
 
