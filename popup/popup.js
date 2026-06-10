@@ -339,13 +339,17 @@ async function init() {
 }
 
 // A Naukri results/listing page (many jobs) — NOT a single job-detail page.
+// Permissive: any naukri.com page except a single job detail or account pages.
+// The scanner itself reports if no job cards are present.
 function isNaukriSearchPage(url) {
   if (!url) return false;
   try {
     const u = new URL(url);
     if (!u.hostname.toLowerCase().includes('naukri.com')) return false;
-    if (u.pathname.includes('/job-listings-')) return false; // single job detail
-    return /-jobs(-in-[a-z-]+)?\b/i.test(u.pathname) || u.pathname.includes('/jobs-in-');
+    const p = u.pathname.toLowerCase();
+    if (p.includes('/job-listings-')) return false;                 // single job detail → clip form
+    if (p.startsWith('/mnjuser') || p.includes('/login') || p.includes('/registration')) return false;
+    return true;
   } catch {
     return false;
   }
