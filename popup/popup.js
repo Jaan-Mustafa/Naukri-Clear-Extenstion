@@ -11,6 +11,7 @@ const states = {
   duplicate: document.getElementById('state-duplicate'),
   saved: document.getElementById('state-saved'),
   error: document.getElementById('state-error'),
+  discover: document.getElementById('state-discover'),
 };
 
 let extractedData = null;
@@ -311,6 +312,15 @@ async function init() {
 
   showConnectedAccount(auth.user);
 
+  // Naukri search-results page → offer a bulk "scan into Discover" instead of
+  // the single-job clip form.
+  const [activeTabInfo] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (isNaukriSearchPage(activeTabInfo?.url)) {
+    setupDiscoverScan();
+    showState('discover');
+    return;
+  }
+
   const extracted = await extractFromPage();
   const data = extracted || (await emptyFormData());
 
@@ -326,6 +336,80 @@ async function init() {
   const draft = await loadDraft(data.jobLink);
   fillForm(data, draft);
   showState('form');
+}
+
+// A Naukri results/listing page (many jobs) — NOT a single job-detail page.
+function isNaukriSearchPage(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    if (!u.hostname.toLowerCase().includes('naukri.com')) return false;
+    if (u.pathname.includes('/job-listings-')) return false; // single job detail
+    return /-jobs(-in-[a-z-]+)?\b/i.test(u.pathname) || u.pathname.includes('/jobs-in-');
+  } catch {
+    return false;
+  }
+}
+
+let discoverScanWired = false;
+function setupDiscoverScan() {
+  const link = document.getElementById('discover-link');
+  if (link) link.href = `${APP_BASE}/discover`;
+  if (discoverScanWired) return;
+  discoverScanWired = true;
+  document.getElementById('discover-scan-btn').addEventListener('click', runDiscoverScan);
+}
+
+async function runDiscoverScan() {
+  const btn = document.getElementById('discover-scan-btn');
+  const status = document.getElementById('discover-status');
+  const link = document.getElementById('discover-link');
+  btn.disabled = true;
+  btn.textContent = 'Scanning…';
+  status.classList.remove('hidden');
+  status.textContent = 'Reading jobs on this page…';
+  link.classList.add('hidden');
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('No active tab');
+
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/search-scanner.js'] });
+    } catch {
+      // already injected / activeTab grant — fine
+    }
+    await new Promise((r) => setTimeout(r, 300));
+
+    const resp = await chrome.tabs.sendMessage(tab.id, { action: 'scan-search' });
+    const jobs = resp?.success ? resp.jobs : [];
+    if (!jobs.length) {
+      status.textContent = 'No job cards found on this page. Scroll through the results, then try again.';
+      btn.disabled = false;
+      btn.textContent = 'Scan this page';
+      return;
+    }
+
+    status.textContent = `Sending ${jobs.length} jobs to Naukri Clear…`;
+    const res = await fetch(`${API_BASE}/api/discover/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ source: 'naukri', jobs }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const result = await res.json();
+
+    status.textContent = result.added > 0
+      ? `Added ${result.added} new ${result.added === 1 ? 'job' : 'jobs'} (${result.duplicates} already saved).`
+      : `No new jobs — all ${result.received} were already in your feed.`;
+    link.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Scan again';
+  } catch (err) {
+    status.textContent = `Scan failed: ${err.message}`;
+    btn.disabled = false;
+    btn.textContent = 'Scan this page';
+  }
 }
 
 async function emptyFormData() {
@@ -382,6 +466,12 @@ document.getElementById('save-token-btn').addEventListener('click', async () => 
 
   if (auth.ok) {
     showConnectedAccount(auth.user);
+    const [activeTabInfo] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (isNaukriSearchPage(activeTabInfo?.url)) {
+      setupDiscoverScan();
+      showState('discover');
+      return;
+    }
     // Token works — continue to extraction, fall back to blank form if it fails
     const extracted = await extractFromPage();
     const data = extracted || (await emptyFormData());
